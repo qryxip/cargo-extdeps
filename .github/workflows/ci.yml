@@ -1,0 +1,123 @@
+name: CI
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  actionlint:
+    name: actionlint
+    runs-on: ubuntu-20.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Install Actionlint
+        run: |
+          bash <(curl https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+          mkdir -p ~/.local/bin
+          mv ./actionlint ~/.local/bin/
+          echo ~/.local/bin >> "$GITHUB_PATH"
+
+      - name: actionlint
+        run: actionlint
+
+  rustfmt:
+    name: Rustfmt
+    runs-on: ubuntu-20.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up the main toolchain
+        uses: ./.github/actions/rust-toolchain-from-file
+        with:
+          components: rustfmt
+
+      - name: cargo-fmt
+        run: cargo fmt --all -- --check
+
+  grcov:
+    name: grcov
+    runs-on: ubuntu-20.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up the main toolchain
+        uses: ./.github/actions/rust-toolchain-from-file
+        with:
+          components: llvm-tools-preview
+
+      - name: Install cargo-binstall
+        uses: taiki-e/install-action@cargo-binstall
+
+      - name: Install grcov
+        run: |
+          cargo binstall \
+            grcov@^0.8 \
+            --pkg-url '{ repo }/releases/download/v{ version }/{ name }-{ target }.tar.bz2' \
+            --pkg-fmt tbz2 \
+            --bin-dir '{ bin }{ binary-ext }' \
+            --no-confirm
+
+      - name: cargo-test
+        run: cargo test --no-fail-fast -v -- --test-threads 1
+        env:
+          RUSTFLAGS: '-Cinstrument-coverage'
+          RUST_BACKTRACE: full
+          LLVM_PROFILE_FILE: '%p-%m.profraw'
+
+      - name: grcov
+        run: grcov . -b ./target/debug -s . -t lcov --branch --ignore-not-existing --ignore '/*' -o lcov.info
+
+      - name: Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: lcov.info
+        if: ${{ github.repository_owner == 'qryxip' && github.ref == 'refs/heads/main' }}
+
+  lint-and-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        target-triple:
+          - x86_64-pc-windows-msvc
+          - x86_64-apple-darwin
+          - x86_64-unknown-linux-gnu
+        include:
+          - { target-triple: x86_64-pc-windows-msvc  , os: windows-2022 }
+          - { target-triple: x86_64-apple-darwin     , os: macos-11     }
+          - { target-triple: x86_64-unknown-linux-gnu, os: ubuntu-20.04 }
+
+    name: ${{ matrix.target-triple }}
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up the main toolchain
+        uses: ./.github/actions/rust-toolchain-from-file
+        with:
+          targets: ${{ matrix.target-triple }}
+          components: clippy
+
+      - name: rust-cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: cargo-clippy
+        run: cargo clippy --all-targets --target ${{ matrix.target-triple }} -- -D warnings
+
+      - name: cargo-test
+        run: cargo test --no-fail-fast --target ${{ matrix.target-triple }}
+        env:
+          RUST_BACKTRACE: full
