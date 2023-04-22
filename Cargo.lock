@@ -3,5 +3,5 @@
 version = 3
 
 [[package]]
-name = "cargo-edeps"
+name = "cargo-extdeps"
 version = "0.0.0"

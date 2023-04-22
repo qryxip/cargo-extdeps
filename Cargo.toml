@@ -1,11 +1,11 @@
 [package]
-name = "cargo-edeps"
+name = "cargo-extdeps"
 version = "0.0.0"
 edition = "2021"
 rust-version = "1.65"
 license = "MIT OR Apache-2.0"
 description = "A tool to help you manage external C/C++ dependencies"
-repository = "https://github.com/qryxip/cargo-edeps"
+repository = "https://github.com/qryxip/cargo-extdeps"
 keywords = ["license", "spdx"]
 categories = ["development-tools::cargo-plugins"]
 publish = false
