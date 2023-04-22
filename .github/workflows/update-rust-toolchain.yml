@@ -18,7 +18,7 @@ jobs:
       - name: Update rust-toolchain
         id: update-rust-toolchain
         run: |
-          version="$(rustc +stable -V | awk '{ print $2 }')"
+          version=$(rustc +stable -V | awk '{ print $2 }')
           msrv=$(awk -F . '{ print $1 "." $2 }' <<< "$version")
           cat > ./rust-toolchain <<< "$version"
           sed -i 's/^rust-version = "[^"]\+"$/rust-version = "'"$msrv"'"/g' Cargo.toml
