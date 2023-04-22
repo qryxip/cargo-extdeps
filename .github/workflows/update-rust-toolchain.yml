@@ -19,7 +19,9 @@ jobs:
         id: update-rust-toolchain
         run: |
           version="$(rustc +stable -V | awk '{ print $2 }')"
+          msrv=$(awk -F . '{ print $1 "." $2 }' <<< "$version")
           cat > ./rust-toolchain <<< "$version"
+          sed -i 's/^rust-version = "[^"]\+"$/rust-version = "'"$msrv"'"/g' Cargo.toml
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Create PR
